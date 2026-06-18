@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// The expanded panel shown on hover. A top spacer the height of the physical
-/// notch keeps every control clear of the camera hardware. Below it, a balanced
-/// row — progress ring (left), phase details (middle), session count (right) —
-/// then a row of transport controls and a Focus toggle.
+/// The expanded panel. A top spacer the height of the physical notch keeps
+/// every control clear of the camera. Below it: a tinted phase badge with
+/// session dots, a large hero countdown with the next phase, a slim gradient
+/// progress bar, and a row of transport controls plus a Focus toggle.
 struct OpenNotchView: View {
     @Bindable var engine: PomodoroEngine
     let focus: FocusController
@@ -11,43 +11,27 @@ struct OpenNotchView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Reserve the notch strip so nothing renders behind the camera.
             Color.clear.frame(height: geometry.notchHeight)
 
-            VStack(spacing: 14) {
-                HStack(alignment: .center, spacing: 14) {
-                    TimerRing(
-                        progress: engine.progress,
-                        remaining: engine.remaining,
-                        phase: engine.phase,
-                        diameter: 86
-                    )
-                    details
-                    Spacer(minLength: 8)
-                    sessionCount
-                }
-
+            VStack(alignment: .leading, spacing: 12) {
+                header
+                hero
+                ProgressBar(progress: engine.progress, colors: engine.phase.gradient)
+                    .frame(height: 5)
                 controls
+                    .padding(.top, 2)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 10)
-            .padding(.bottom, 16)
+            .padding(.horizontal, 22)
+            .padding(.top, 12)
+            .padding(.bottom, 18)
         }
         .frame(width: geometry.openWidth, height: geometry.openHeight, alignment: .top)
     }
 
-    private var details: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            HStack(spacing: 8) {
-                Image(systemName: engine.phase.symbolName)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(engine.phase.accent)
-                Text(engine.phase.title)
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-            }
-
+    private var header: some View {
+        HStack(alignment: .center, spacing: 8) {
+            PhaseBadge(phase: engine.phase)
+            Spacer(minLength: 8)
             SessionDots(
                 completed: engine.cyclePosition,
                 total: engine.sessionsBeforeLongBreak,
@@ -56,35 +40,39 @@ struct OpenNotchView: View {
                 dotSize: 7,
                 spacing: 6
             )
-
-            Text("Next · \(engine.upcomingPhase.title)")
-                .font(.system(size: 11, weight: .regular))
-                .foregroundStyle(.white.opacity(0.45))
-                .lineLimit(1)
         }
-        .fixedSize(horizontal: false, vertical: true)
     }
 
-    private var sessionCount: some View {
-        VStack(alignment: .trailing, spacing: 0) {
-            Text("\(engine.currentSessionNumber)")
-                .font(.system(size: 30, weight: .bold, design: .rounded))
+    private var hero: some View {
+        HStack(alignment: .center) {
+            Text(TimeFormatting.clock(engine.remaining))
+                .font(.system(size: 44, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(.white)
-            Text("of \(engine.sessionsBeforeLongBreak)")
-                .font(.system(size: 11, weight: .medium))
-                .monospacedDigit()
-                .foregroundStyle(.white.opacity(0.5))
+                .contentTransition(.numericText())
+
+            Spacer(minLength: 8)
+
+            VStack(alignment: .trailing, spacing: 1) {
+                Text("NEXT")
+                    .font(.system(size: 9, weight: .bold))
+                    .tracking(1.4)
+                    .foregroundStyle(.white.opacity(0.32))
+                Text(engine.upcomingPhase.title)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.62))
+                    .lineLimit(1)
+            }
         }
     }
 
     private var controls: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             ControlButton(
                 systemName: engine.isRunning ? "pause.fill" : "play.fill",
                 prominent: true,
                 tint: engine.phase.accent,
-                diameter: 38,
+                diameter: 40,
                 help: engine.isRunning ? "Pause" : "Start"
             ) {
                 engine.toggle()

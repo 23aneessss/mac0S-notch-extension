@@ -2,11 +2,11 @@ import SwiftUI
 
 /// Root content of the notch panel.
 ///
-/// The black `NotchShape` morphs its size and corner radius between the
-/// collapsed pill and the expanded panel. The collapsed and expanded layouts
-/// are *both* always present but occupy different vertical regions (collapsed in
-/// the top notch strip, expanded below it), so cross-fading their opacity never
-/// produces overlapping text.
+/// The black `NotchShape` morphs between the collapsed pill and the expanded
+/// panel — growing the bottom radius and flaring the top "ears" so it reads as
+/// an extension of the hardware notch. Collapsed and expanded content occupy
+/// different vertical regions (collapsed in the top strip, expanded below it),
+/// so cross-fading their opacity never overlaps text.
 struct NotchRootView: View {
     @Bindable var model: NotchModel
     let engine: PomodoroEngine
@@ -22,36 +22,36 @@ struct NotchRootView: View {
 
     private var shapeWidth: CGFloat { isOpen ? geo.openWidth : collapsedWidth }
     private var shapeHeight: CGFloat { isOpen ? geo.openHeight : geo.notchHeight }
-    private var radius: CGFloat { isOpen ? geo.openCornerRadius : geo.closedBottomRadius }
+    private var bottomRadius: CGFloat { isOpen ? geo.openCornerRadius : geo.closedBottomRadius }
+    // Square top while idle (matches the bare notch); flared otherwise.
+    private var earRadius: CGFloat { (isOpen || isActive) ? geo.earRadius : 0 }
 
     var body: some View {
         ZStack(alignment: .top) {
-            // Black silhouette that blends with the physical notch.
-            NotchShape(bottomRadius: radius)
+            NotchShape(topRadius: earRadius, bottomRadius: bottomRadius)
                 .fill(Color.black)
                 .overlay {
-                    NotchShape(bottomRadius: radius)
-                        .stroke(Color.white.opacity(isOpen ? 0.10 : 0), lineWidth: 1)
+                    NotchShape(topRadius: earRadius, bottomRadius: bottomRadius)
+                        .stroke(Color.white.opacity(isOpen ? 0.08 : 0), lineWidth: 0.75)
                 }
                 .frame(width: shapeWidth, height: shapeHeight)
-                .shadow(color: .black.opacity(isOpen ? 0.5 : 0), radius: 22, y: 12)
+                .shadow(color: .black.opacity(isOpen ? 0.55 : 0), radius: 24, y: 14)
 
-            // Collapsed content — lives only in the top notch strip, and only
-            // while a session is active (idle stays a clean notch).
+            // Collapsed content — top strip, only while a session is active.
             ClosedNotchView(engine: engine, geometry: geo)
                 .frame(width: geo.closedWidth, height: geo.notchHeight)
                 .opacity((isOpen || !isActive) ? 0 : 1)
                 .allowsHitTesting(false)
 
-            // Expanded content — lives only below the notch strip.
+            // Expanded content — below the notch strip.
             OpenNotchView(engine: engine, focus: focus, geometry: geo)
                 .frame(width: geo.openWidth, height: geo.openHeight)
                 .opacity(isOpen ? 1 : 0)
                 .allowsHitTesting(isOpen)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .animation(.spring(response: 0.42, dampingFraction: 0.82), value: isOpen)
-        .animation(.spring(response: 0.42, dampingFraction: 0.86), value: isActive)
-        .animation(.easeInOut(duration: 0.22), value: isOpen) // opacity cross-fade
+        .animation(.spring(response: 0.32, dampingFraction: 0.80), value: isOpen)
+        .animation(.spring(response: 0.34, dampingFraction: 0.86), value: isActive)
+        .animation(.easeOut(duration: 0.16), value: isOpen) // opacity cross-fade
     }
 }

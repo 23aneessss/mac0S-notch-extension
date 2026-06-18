@@ -26,8 +26,8 @@ final class NotchController {
     private var pendingOpen: DispatchWorkItem?
     private var pendingClose: DispatchWorkItem?
 
-    private let openDelay: TimeInterval = 0.12
-    private let closeDelay: TimeInterval = 0.45
+    private let openDelay: TimeInterval = 0.05
+    private let closeDelay: TimeInterval = 0.22
 
     init(environment: AppEnvironment) {
         self.environment = environment

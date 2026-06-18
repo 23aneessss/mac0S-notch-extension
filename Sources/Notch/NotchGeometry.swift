@@ -20,11 +20,13 @@ struct NotchGeometry: Equatable {
     var openContentHeight: CGFloat  // openHeight - notchHeight
     var closedBottomRadius: CGFloat
     var openCornerRadius: CGFloat
+    var earRadius: CGFloat          // concave top-corner flare when expanded
 
     // Window / screen-space (global coordinates, bottom-left origin)
     var windowFrame: CGRect
-    var closedHoverRect: CGRect   // hover region while a session is active (full pill)
-    var notchHoverRect: CGRect    // hover region while idle (notch only)
+    var hMargin: CGFloat            // horizontal padding inside the window (for ears + shadow)
+    var closedHoverRect: CGRect     // hover region while a session is active (full pill)
+    var notchHoverRect: CGRect      // hover region while idle (notch only)
     var openHoverRect: CGRect
 
     /// Total collapsed width: notch gap plus both equal side areas.
@@ -34,29 +36,34 @@ struct NotchGeometry: Equatable {
         let notchHeight = (screen.notchHeight ?? 32).rounded()
         let notchWidth = (screen.notchWidth ?? 200).rounded()
 
-        let sideWidth: CGFloat = 80
+        let sideWidth: CGFloat = 82
         let closedWidth = notchWidth + sideWidth * 2
 
-        // Snug enough that content fills the panel rather than swimming in it.
-        let openContentHeight: CGFloat = 164
+        // Ring-free layout: phase badge + hero time + slim progress bar + controls.
+        let openContentHeight: CGFloat = 190
         let openHeight = notchHeight + openContentHeight
-        let openWidth = max(closedWidth + 24, 366)
+        let openWidth = max(closedWidth + 44, 392)
 
-        let closedBottomRadius: CGFloat = 11
-        let openCornerRadius: CGFloat = 24
+        let closedBottomRadius: CGFloat = 12
+        let openCornerRadius: CGFloat = 30
+        let earRadius: CGFloat = 12
 
-        // Window is exactly the expanded panel; the collapsed pill draws inside
-        // its top strip. Centered on the display, flush with the top edge, and
-        // pixel-aligned to stay crisp.
+        // Window padding so the ears and drop shadow have room to render.
+        let hMargin: CGFloat = 30
+        let bottomMargin: CGFloat = 24
+
         let frame = screen.frame
         let centerX = (frame.midX).rounded()
         let topY = frame.maxY
 
+        let windowWidth = openWidth + hMargin * 2
+        let windowHeight = openHeight + bottomMargin
+
         let windowFrame = CGRect(
-            x: (centerX - openWidth / 2).rounded(),
-            y: (topY - openHeight).rounded(),
-            width: openWidth,
-            height: openHeight
+            x: (centerX - windowWidth / 2).rounded(),
+            y: (topY - windowHeight).rounded(),
+            width: windowWidth,
+            height: windowHeight
         )
 
         // Collapsed hover region: the pill, with a little vertical slop so the
@@ -83,9 +90,9 @@ struct NotchGeometry: Equatable {
         // Expanded hover region: the whole panel, with a small margin so moving
         // the cursor between controls never slips outside and snaps it shut.
         let openHoverRect = CGRect(
-            x: centerX - openWidth / 2 - 6,
+            x: centerX - openWidth / 2 - 8,
             y: topY - openHeight - 6,
-            width: openWidth + 12,
+            width: openWidth + 16,
             height: openHeight + 6
         )
 
@@ -98,7 +105,9 @@ struct NotchGeometry: Equatable {
             openContentHeight: openContentHeight,
             closedBottomRadius: closedBottomRadius,
             openCornerRadius: openCornerRadius,
+            earRadius: earRadius,
             windowFrame: windowFrame,
+            hMargin: hMargin,
             closedHoverRect: closedHoverRect,
             notchHoverRect: notchHoverRect,
             openHoverRect: openHoverRect
