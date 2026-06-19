@@ -29,7 +29,7 @@ struct NotchRootView: View {
     var body: some View {
         ZStack(alignment: .top) {
             NotchShape(topRadius: earRadius, bottomRadius: bottomRadius)
-                .fill(Color.black)
+                .fill(Color(red: 0, green: 0, blue: 0)) // pure #000000, like the physical notch
                 .overlay {
                     NotchShape(topRadius: earRadius, bottomRadius: bottomRadius)
                         .stroke(Color.white.opacity(isOpen ? 0.08 : 0), lineWidth: 0.75)
