@@ -11,6 +11,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         #if DEBUG
+        if ControlCenterDump.runIfRequested() {
+            exit(0)
+        }
         if PreviewRenderer.renderIfRequested() {
             exit(0)
         }

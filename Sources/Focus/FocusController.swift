@@ -70,49 +70,77 @@ final class FocusController {
         }
     }
 
-    /// Clicks Control Center → Focus / Do Not Disturb. Best-effort across
-    /// macOS versions; failures are logged and reported via the return value.
+    /// Opens Control Center and presses the Do Not Disturb / Focus control,
+    /// trying several strategies because the layout varies across macOS
+    /// versions. Returns true only if something was actually pressed.
     private static func runToggleScript() -> Bool {
         let source = """
+        on pressMatch(win, attr, val)
+            tell application "System Events"
+                repeat with e in (entire contents of win)
+                    try
+                        if attr is "desc" then
+                            if (description of e) is val then
+                                perform action "AXPress" of e
+                                return true
+                            end if
+                        else if attr is "name" then
+                            if (name of e) is val then
+                                perform action "AXPress" of e
+                                return true
+                            end if
+                        end if
+                    end try
+                end repeat
+            end tell
+            return false
+        end pressMatch
+
         tell application "System Events"
             tell process "ControlCenter"
                 set frontmost to true
+                -- Open Control Center.
                 try
-                    click (first menu bar item of menu bar 1 whose description is "Control Center")
+                    perform action "AXPress" of (first menu bar item of menu bar 1 whose description is "Control Center")
                 on error
-                    click (last menu bar item of menu bar 1)
-                end try
-                delay 0.55
-                set didClick to false
-                try
-                    click (first button of window 1 whose description is "Focus")
-                    set didClick to true
-                end try
-                if not didClick then
                     try
-                        click (first checkbox of window 1 whose description is "Focus")
-                        set didClick to true
+                        perform action "AXPress" of (last menu bar item of menu bar 1)
+                    end try
+                end try
+                delay 0.7
+
+                set done to false
+                -- 1) A control already labelled "Do Not Disturb".
+                if not done then set done to my pressMatch(window 1, "desc", "Do Not Disturb")
+                if not done then set done to my pressMatch(window 1, "name", "Do Not Disturb")
+                -- 2) The Focus tile (toggles the active focus / expands the list).
+                if not done then set done to my pressMatch(window 1, "desc", "Focus")
+                if not done then set done to my pressMatch(window 1, "name", "Focus")
+
+                delay 0.5
+                -- 3) If a submenu expanded, now choose Do Not Disturb.
+                if done then
+                    try
+                        my pressMatch(window 1, "desc", "Do Not Disturb")
                     end try
                 end if
-                delay 0.45
-                try
-                    click (first button of window 1 whose description is "Do Not Disturb")
-                end try
-                try
-                    click (first UI element of window 1 whose name is "Do Not Disturb")
-                end try
+
                 delay 0.15
-                key code 53
+                try
+                    key code 53
+                end try
+                return done
             end tell
         end tell
         """
         guard let script = NSAppleScript(source: source) else { return false }
         var error: NSDictionary?
-        script.executeAndReturnError(&error)
+        let result = script.executeAndReturnError(&error)
         if let error {
             NSLog("FocusNotch: Do Not Disturb toggle failed: \(error)")
             return false
         }
-        return true
+        // The script returns whether it pressed anything.
+        return result.booleanValue
     }
 }
