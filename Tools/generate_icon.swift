@@ -5,16 +5,16 @@ import CoreGraphics
 // FocusNotch app icon, 1024×1024. `Tools/make_icons.sh` derives smaller sizes.
 //
 // Usage: generate_icon.swift [outPath] [style]
-//   style ∈ { dark, vibrant, indigo }  (default: dark)
+//   style ∈ { dark, vibrant, indigo, light }  (default: indigo)
 //
-// Concept "Backlit Island": a squircle with a soft accent glow behind a floating
-// glass "island" (the notch), an accent rim-light, a top glass sheen, a lens
-// dot, and a real drop shadow. The style varies the palette.
+// The centerpiece is a true **notch silhouette** — flat top, rounded bottom
+// corners (not a capsule) — with a glass fill, accent rim-light, lens dot, and
+// a drop shadow. The style varies the palette.
 
 let outPath = CommandLine.arguments.count > 1
     ? CommandLine.arguments[1]
     : "Sources/Resources/Assets.xcassets/AppIcon.appiconset/icon_1024.png"
-let style = CommandLine.arguments.count > 2 ? CommandLine.arguments[2] : "dark"
+let style = CommandLine.arguments.count > 2 ? CommandLine.arguments[2] : "indigo"
 
 let size = 1024
 let cs = CGColorSpace(name: CGColorSpace.sRGB)!
@@ -36,32 +36,39 @@ let rect = CGRect(x: inset, y: inset, width: s - inset*2, height: s - inset*2)
 let corner = rect.width * 0.2237
 func squircle() -> CGPath { CGPath(roundedRect: rect, cornerWidth: corner, cornerHeight: corner, transform: nil) }
 
-// Island geometry (shared).
+// Island geometry — a real notch: flat top, rounded bottom.
 let iW = rect.width * 0.52
-let iH = rect.height * 0.17
+let iH = rect.height * 0.175
 let iX = rect.midX - iW / 2
 let iCenterY = rect.midY + rect.height * 0.03
 let iY = iCenterY - iH / 2
-let iR = iH / 2
+let topR = iH * 0.16
+let botR = iH * 0.46
 func islandPath() -> CGPath {
-    CGPath(roundedRect: CGRect(x: iX, y: iY, width: iW, height: iH), cornerWidth: iR, cornerHeight: iR, transform: nil)
+    let r = CGRect(x: iX, y: iY, width: iW, height: iH)
+    let p = CGMutablePath()
+    p.move(to: CGPoint(x: r.minX, y: r.maxY - topR))
+    p.addQuadCurve(to: CGPoint(x: r.minX + topR, y: r.maxY), control: CGPoint(x: r.minX, y: r.maxY))
+    p.addLine(to: CGPoint(x: r.maxX - topR, y: r.maxY))
+    p.addQuadCurve(to: CGPoint(x: r.maxX, y: r.maxY - topR), control: CGPoint(x: r.maxX, y: r.maxY))
+    p.addLine(to: CGPoint(x: r.maxX, y: r.minY + botR))
+    p.addQuadCurve(to: CGPoint(x: r.maxX - botR, y: r.minY), control: CGPoint(x: r.maxX, y: r.minY))
+    p.addLine(to: CGPoint(x: r.minX + botR, y: r.minY))
+    p.addQuadCurve(to: CGPoint(x: r.minX, y: r.minY + botR), control: CGPoint(x: r.minX, y: r.minY))
+    p.closeSubpath()
+    return p
 }
 
-// Palette per style.
-let accentA: CGColor, accentB: CGColor, glowColor: CGColor
-var islandIsPureBlack = false
+let isLight = (style == "light" || style == "warm")
+let isVibrant = (style == "vibrant")
 
+// Accent per style.
+let accentA: CGColor, accentB: CGColor
 switch style {
-case "vibrant":
-    accentA = col(255, 255, 255); accentB = col(255, 255, 255)
-    glowColor = col(255, 255, 255, 0)
-    islandIsPureBlack = true
-case "indigo":
-    accentA = col(120, 170, 255); accentB = col(150, 110, 255)
-    glowColor = col(90, 140, 255, 0.42)
-default: // dark
-    accentA = col(255, 138, 92); accentB = col(255, 42, 116)
-    glowColor = col(255, 70, 115, 0.40)
+case "vibrant":        accentA = col(255,255,255); accentB = col(255,255,255)
+case "indigo":         accentA = col(120,170,255); accentB = col(150,110,255)
+case "light", "warm":  accentA = col(99,102,241);  accentB = col(139,92,246)   // indigo→violet
+default:               accentA = col(255,138,92);   accentB = col(255,42,116)
 }
 
 // ---------- Background ----------
@@ -70,97 +77,85 @@ ctx.addPath(squircle()); ctx.clip()
 
 switch style {
 case "vibrant":
-    // Vivid diagonal mesh — coral → magenta → violet.
-    ctx.drawLinearGradient(
-        grad([col(255, 122, 80), col(255, 46, 120), col(150, 70, 255)], [0, 0.55, 1]),
-        start: CGPoint(x: rect.minX, y: rect.maxY),
-        end: CGPoint(x: rect.maxX, y: rect.minY), options: [])
-    // Warm bloom top-left.
-    ctx.drawRadialGradient(
-        grad([col(255, 200, 120, 0.35), col(255, 200, 120, 0)], [0, 1]),
-        startCenter: CGPoint(x: rect.minX + rect.width*0.28, y: rect.maxY - rect.height*0.24), startRadius: 0,
-        endCenter: CGPoint(x: rect.minX + rect.width*0.28, y: rect.maxY - rect.height*0.24), endRadius: rect.width*0.55, options: [])
+    ctx.drawLinearGradient(grad([col(255,122,80), col(255,46,120), col(150,70,255)], [0,0.55,1]),
+        start: CGPoint(x: rect.minX, y: rect.maxY), end: CGPoint(x: rect.maxX, y: rect.minY), options: [])
 case "indigo":
-    ctx.drawLinearGradient(
-        grad([col(46, 52, 96), col(10, 11, 22)], [0, 1]),
-        start: CGPoint(x: rect.midX, y: rect.maxY),
-        end: CGPoint(x: rect.midX, y: rect.minY), options: [])
+    ctx.drawLinearGradient(grad([col(46,52,96), col(10,11,22)], [0,1]),
+        start: CGPoint(x: rect.midX, y: rect.maxY), end: CGPoint(x: rect.midX, y: rect.minY), options: [])
+    let gc = CGPoint(x: rect.midX, y: rect.midY + rect.height*0.06)
+    ctx.drawRadialGradient(grad([col(90,140,255,0.42), col(90,140,255,0)], [0,1]),
+        startCenter: gc, startRadius: 0, endCenter: gc, endRadius: rect.width*0.52, options: [])
+case "light":
+    // Cool off-white / light gray — not stark white.
+    ctx.drawLinearGradient(grad([col(229,231,238), col(202,206,218)], [0,1]),
+        start: CGPoint(x: rect.midX, y: rect.maxY), end: CGPoint(x: rect.midX, y: rect.minY), options: [])
+    let gc = CGPoint(x: rect.midX, y: rect.midY + rect.height*0.04)
+    ctx.drawRadialGradient(grad([col(120,110,250,0.18), col(120,110,250,0)], [0,1]),
+        startCenter: gc, startRadius: 0, endCenter: gc, endRadius: rect.width*0.55, options: [])
+case "warm":
+    // Warm porcelain / greige — soft and premium.
+    ctx.drawLinearGradient(grad([col(238,233,227), col(214,205,194)], [0,1]),
+        start: CGPoint(x: rect.midX, y: rect.maxY), end: CGPoint(x: rect.midX, y: rect.minY), options: [])
+    let gc = CGPoint(x: rect.midX, y: rect.midY + rect.height*0.04)
+    ctx.drawRadialGradient(grad([col(150,120,230,0.14), col(150,120,230,0)], [0,1]),
+        startCenter: gc, startRadius: 0, endCenter: gc, endRadius: rect.width*0.55, options: [])
 default:
-    ctx.drawLinearGradient(
-        grad([col(20, 20, 26), col(6, 6, 9)], [0, 1]),
-        start: CGPoint(x: rect.midX, y: rect.maxY),
-        end: CGPoint(x: rect.midX, y: rect.minY), options: [])
+    ctx.drawLinearGradient(grad([col(20,20,26), col(6,6,9)], [0,1]),
+        start: CGPoint(x: rect.midX, y: rect.maxY), end: CGPoint(x: rect.midX, y: rect.minY), options: [])
+    let gc = CGPoint(x: rect.midX, y: rect.midY + rect.height*0.06)
+    ctx.drawRadialGradient(grad([col(255,70,115,0.40), col(255,70,115,0)], [0,1]),
+        startCenter: gc, startRadius: 0, endCenter: gc, endRadius: rect.width*0.52, options: [])
 }
 
-// Accent glow behind the island (skip for vibrant — the bg already glows).
-if !islandIsPureBlack {
-    let glowCenter = CGPoint(x: rect.midX, y: rect.midY + rect.height * 0.06)
-    ctx.drawRadialGradient(
-        grad([glowColor, col(0, 0, 0, 0)], [0, 1]),
-        startCenter: glowCenter, startRadius: 0,
-        endCenter: glowCenter, endRadius: rect.width * 0.52, options: [])
-}
-
-// Top sheen + edge vignette.
-ctx.drawLinearGradient(
-    grad([col(255, 255, 255, 0.10), col(255, 255, 255, 0)], [0, 1]),
-    start: CGPoint(x: rect.midX, y: rect.maxY),
-    end: CGPoint(x: rect.midX, y: rect.maxY - rect.height*0.34), options: [])
-ctx.drawRadialGradient(
-    grad([col(0, 0, 0, 0), col(0, 0, 0, islandIsPureBlack ? 0.30 : 0.45)], [0.55, 1]),
-    startCenter: CGPoint(x: rect.midX, y: rect.midY), startRadius: rect.width * 0.32,
-    endCenter: CGPoint(x: rect.midX, y: rect.midY), endRadius: rect.width * 0.74, options: [])
+// Sheen + vignette.
+ctx.drawLinearGradient(grad([col(255,255,255, isLight ? 0.5 : 0.10), col(255,255,255,0)], [0,1]),
+    start: CGPoint(x: rect.midX, y: rect.maxY), end: CGPoint(x: rect.midX, y: rect.maxY - rect.height*0.34), options: [])
+ctx.drawRadialGradient(grad([col(0,0,0,0), col(0,0,0, isLight ? 0.10 : (isVibrant ? 0.30 : 0.45))], [0.55,1]),
+    startCenter: CGPoint(x: rect.midX, y: rect.midY), startRadius: rect.width*0.32,
+    endCenter: CGPoint(x: rect.midX, y: rect.midY), endRadius: rect.width*0.74, options: [])
 ctx.restoreGState()
 
-// ---------- Floating island ----------
+// ---------- The notch ----------
+let islandFill: CGColor = isLight ? col(12,12,16) : (isVibrant ? col(0,0,0) : col(18,18,22))
+
 // Drop shadow + base.
 ctx.saveGState()
-ctx.setShadow(offset: CGSize(width: 0, height: -22), blur: 55, color: col(0, 0, 0, islandIsPureBlack ? 0.5 : 0.65))
-ctx.addPath(islandPath())
-ctx.setFillColor(islandIsPureBlack ? col(0, 0, 0) : col(18, 18, 22))
-ctx.fillPath()
+ctx.setShadow(offset: CGSize(width: 0, height: -22), blur: isLight ? 36 : 55,
+              color: col(0,0,0, isLight ? 0.28 : (isVibrant ? 0.5 : 0.65)))
+ctx.addPath(islandPath()); ctx.setFillColor(islandFill); ctx.fillPath()
 ctx.restoreGState()
 
-if !islandIsPureBlack {
-    // Form gradient + top sheen.
+// Form gradient + sheen for the dark glass styles.
+if !isVibrant {
     ctx.saveGState()
     ctx.addPath(islandPath()); ctx.clip()
-    ctx.drawLinearGradient(
-        grad([col(44, 44, 54), col(10, 10, 14)], [0, 1]),
-        start: CGPoint(x: rect.midX, y: iY + iH),
-        end: CGPoint(x: rect.midX, y: iY), options: [])
-    ctx.drawLinearGradient(
-        grad([col(255, 255, 255, 0.18), col(255, 255, 255, 0)], [0, 1]),
-        start: CGPoint(x: rect.midX, y: iY + iH),
-        end: CGPoint(x: rect.midX, y: iY + iH * 0.45), options: [])
+    let top: CGColor = isLight ? col(34,34,42) : col(44,44,54)
+    let bot: CGColor = isLight ? col(6,6,9) : col(10,10,14)
+    ctx.drawLinearGradient(grad([top, bot], [0,1]),
+        start: CGPoint(x: rect.midX, y: iY + iH), end: CGPoint(x: rect.midX, y: iY), options: [])
+    ctx.drawLinearGradient(grad([col(255,255,255,0.16), col(255,255,255,0)], [0,1]),
+        start: CGPoint(x: rect.midX, y: iY + iH), end: CGPoint(x: rect.midX, y: iY + iH*0.45), options: [])
     ctx.restoreGState()
 }
 
 // Rim-light.
 ctx.saveGState()
-if islandIsPureBlack {
-    // Crisp white hairline for the black-on-color island.
+if isVibrant {
     ctx.addPath(islandPath())
-    ctx.setStrokeColor(col(255, 255, 255, 0.22))
-    ctx.setLineWidth(rect.width * 0.004)
-    ctx.strokePath()
+    ctx.setStrokeColor(col(255,255,255,0.22)); ctx.setLineWidth(rect.width*0.004); ctx.strokePath()
 } else {
-    ctx.setShadow(offset: .zero, blur: 26, color: (style == "indigo" ? col(90, 140, 255, 0.85) : col(255, 60, 110, 0.85)))
-    ctx.addPath(islandPath())
-    ctx.setLineWidth(rect.width * 0.0095)
-    ctx.replacePathWithStrokedPath()
-    ctx.clip()
-    ctx.drawLinearGradient(
-        grad([accentA, accentB], [0, 1]),
-        start: CGPoint(x: iX, y: iY + iH),
-        end: CGPoint(x: iX + iW, y: iY), options: [])
+    let glowCol = (style == "indigo") ? col(90,140,255,0.85) : (isLight ? col(120,110,250,0.55) : col(255,60,110,0.85))
+    ctx.setShadow(offset: .zero, blur: isLight ? 16 : 26, color: glowCol)
+    ctx.addPath(islandPath()); ctx.setLineWidth(rect.width*0.0095); ctx.replacePathWithStrokedPath(); ctx.clip()
+    ctx.drawLinearGradient(grad([accentA, accentB], [0,1]),
+        start: CGPoint(x: iX, y: iY + iH), end: CGPoint(x: iX + iW, y: iY), options: [])
 }
 ctx.restoreGState()
 
 // Lens dot.
-let dotR = iH * 0.085
-ctx.setFillColor(col(230, 230, 236, 0.9))
-ctx.fillEllipse(in: CGRect(x: rect.midX - dotR, y: iCenterY - dotR, width: dotR * 2, height: dotR * 2))
+let dotR = iH * 0.082
+ctx.setFillColor(col(230,230,236,0.92))
+ctx.fillEllipse(in: CGRect(x: rect.midX - dotR, y: iCenterY - dotR, width: dotR*2, height: dotR*2))
 
 // ---------- Write PNG ----------
 guard let image = ctx.makeImage() else { fatalError("image") }
