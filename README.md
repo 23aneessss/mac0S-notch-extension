@@ -104,18 +104,40 @@ toggles `ignoresMouseEvents` between collapsed/expanded), and flips an observabl
 `isOpen` flag. The SwiftUI `NotchRootView` animates the `NotchShape` and content
 between the two states.
 
-## Distribution
+## Building a release (DMG)
 
-This project is configured for **direct distribution** (notarized DMG / your own
-site / Gumroad), not the Mac App Store, because the Focus integration shells out
-to the `shortcuts` CLI — which the App Store sandbox forbids. To ship:
+FocusNotch ships as a **direct download** (notarized DMG), not the Mac App Store,
+because Do Not Disturb runs the `shortcuts` CLI — which the App Store sandbox
+forbids. The whole pipeline (build → sign → DMG → notarize → staple) is one
+command:
 
-1. Set your `DEVELOPMENT_TEAM` and a real `PRODUCT_BUNDLE_IDENTIFIER` in `project.yml`.
-2. Archive, sign with a Developer ID certificate (Hardened Runtime is already enabled), and notarize.
+```bash
+FN_SIGN_ID="Developer ID Application: Your Name (TEAMID)" \
+FN_NOTARY_PROFILE="FocusNotchNotary" \
+./scripts/release.sh
+# → dist/FocusNotch-<version>.dmg  (signed, notarized, stapled)
+```
 
-To target the **Mac App Store** instead, enable App Sandbox in
-`Sources/Resources/FocusNotch.entitlements` and replace the `Process`-based
-Focus integration in `FocusController` with an App Intent.
+Omit `FN_NOTARY_PROFILE` to build a signed-but-un-notarized DMG for local testing.
+
+**One-time prerequisites for notarization:**
+
+1. A **paid Apple Developer Program** membership.
+2. A **Developer ID Application** certificate — Xcode → Settings → Accounts →
+   Manage Certificates → **+** → *Developer ID Application*.
+3. A notarytool **keychain profile** (stores your credentials once):
+   ```bash
+   xcrun notarytool store-credentials "FocusNotchNotary" \
+     --apple-id "you@example.com" --team-id "YOURTEAMID" \
+     --password "app-specific-password"   # create at appleid.apple.com
+   ```
+
+Hardened Runtime is already enabled, and `--timestamp --options runtime` are
+applied by the script — the requirements notarization checks for.
+
+> Mac App Store instead? Enable App Sandbox in
+> `Sources/Resources/FocusNotch.entitlements` and replace the `shortcuts`-based
+> Focus integration in `FocusController` with an App Intent.
 
 ## License
 
