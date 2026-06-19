@@ -49,7 +49,7 @@ Disturb** toggle. No window. No Dock icon. Just your notch, finally doing someth
 
 ```bash
 brew install xcodegen        # one-time
-git clone <your-repo-url> && cd mac0S-notch-extension
+git clone https://github.com/23aneessss/FocusNotch && cd FocusNotch
 xcodegen generate
 open FocusNotch.xcodeproj      # ⌘R to run
 ```
