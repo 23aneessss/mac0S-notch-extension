@@ -47,7 +47,7 @@ final class FocusController {
     private func setDoNotDisturb(_ on: Bool) {
         guard on != isActive else { return }
         guard ensureAccessibilityPermission() else { return }
-        if Self.runToggleScript() {
+        if Self.runDNDToggle() {
             isActive = on
         }
     }
@@ -70,66 +70,96 @@ final class FocusController {
         }
     }
 
-    /// Opens Control Center and presses the Do Not Disturb / Focus control,
-    /// trying several strategies because the layout varies across macOS
-    /// versions. Returns true only if something was actually pressed.
-    private static func runToggleScript() -> Bool {
+    /// Drives the Control Center "Focus" toggle (AXIdentifier
+    /// Toggles macOS Do Not Disturb: opens Control Center, presses the Focus
+    /// tile (AXIdentifier `controlcenter-focus-modes`) to expand its submenu,
+    /// then presses the labelled "Do Not Disturb" row. Returns true on success.
+    ///
+    /// `entire contents` doesn't enumerate this window on macOS Tahoe, so we
+    /// traverse `UI elements` recursively.
+    private static func runDNDToggle() -> Bool {
         let source = """
-        on pressMatch(win, attr, val)
+        on findById(el, theId)
             tell application "System Events"
-                repeat with e in (entire contents of win)
+                set kids to {}
+                try
+                    set kids to UI elements of el
+                end try
+                repeat with k in kids
                     try
-                        if attr is "desc" then
-                            if (description of e) is val then
-                                perform action "AXPress" of e
-                                return true
-                            end if
-                        else if attr is "name" then
-                            if (name of e) is val then
-                                perform action "AXPress" of e
-                                return true
-                            end if
-                        end if
+                        if (value of attribute "AXIdentifier" of k) is theId then return k
                     end try
+                    set sub to my findById(k, theId)
+                    if sub is not missing value then return sub
                 end repeat
             end tell
-            return false
-        end pressMatch
+            return missing value
+        end findById
+
+        on findByLabel(el, theLabel)
+            tell application "System Events"
+                set kids to {}
+                try
+                    set kids to UI elements of el
+                end try
+                repeat with k in kids
+                    try
+                        if (name of k) is theLabel then return k
+                    end try
+                    try
+                        if (description of k) is theLabel then return k
+                    end try
+                    set sub to my findByLabel(k, theLabel)
+                    if sub is not missing value then return sub
+                end repeat
+            end tell
+            return missing value
+        end findByLabel
 
         tell application "System Events"
             tell process "ControlCenter"
                 set frontmost to true
-                -- Open Control Center.
                 try
                     perform action "AXPress" of (first menu bar item of menu bar 1 whose description is "Control Center")
                 on error
-                    try
-                        perform action "AXPress" of (last menu bar item of menu bar 1)
-                    end try
+                    return "noopen"
                 end try
-                delay 0.7
-
-                set done to false
-                -- 1) A control already labelled "Do Not Disturb".
-                if not done then set done to my pressMatch(window 1, "desc", "Do Not Disturb")
-                if not done then set done to my pressMatch(window 1, "name", "Do Not Disturb")
-                -- 2) The Focus tile (toggles the active focus / expands the list).
-                if not done then set done to my pressMatch(window 1, "desc", "Focus")
-                if not done then set done to my pressMatch(window 1, "name", "Focus")
-
                 delay 0.5
-                -- 3) If a submenu expanded, now choose Do Not Disturb.
-                if done then
+
+                set focusTile to my findById(window 1, "controlcenter-focus-modes")
+                if focusTile is missing value then
                     try
-                        my pressMatch(window 1, "desc", "Do Not Disturb")
+                        key code 53
                     end try
+                    return "notile"
+                end if
+                perform action "AXPress" of focusTile
+                delay 0.6
+
+                set dnd to missing value
+                repeat with w in windows
+                    set dnd to my findByLabel(w, "Do Not Disturb")
+                    if dnd is not missing value then exit repeat
+                end repeat
+                if dnd is missing value then
+                    try
+                        key code 53
+                    end try
+                    try
+                        key code 53
+                    end try
+                    return "nodnd"
                 end if
 
-                delay 0.15
+                perform action "AXPress" of dnd
+                delay 0.2
                 try
                     key code 53
                 end try
-                return done
+                try
+                    key code 53
+                end try
+                return "ok"
             end tell
         end tell
         """
@@ -140,7 +170,11 @@ final class FocusController {
             NSLog("FocusNotch: Do Not Disturb toggle failed: \(error)")
             return false
         }
-        // The script returns whether it pressed anything.
-        return result.booleanValue
+        let value = result.stringValue ?? ""
+        if value != "ok" {
+            NSLog("FocusNotch: Do Not Disturb toggle did not complete (\(value)).")
+            return false
+        }
+        return true
     }
 }

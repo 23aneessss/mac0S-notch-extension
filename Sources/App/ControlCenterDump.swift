@@ -76,11 +76,42 @@ enum ControlCenterDump {
                 end try
             end try
             delay 1.5
-            set dumpText to dumpText & "== WINDOWS (" & (count of windows) & ") ==" & linefeed
+            set dumpText to dumpText & "== WINDOWS BEFORE (" & (count of windows) & ") ==" & linefeed
             repeat with w in windows
                 set dumpText to dumpText & "WINDOW name=" & (name of w) & linefeed
                 my walk(w, 1)
             end repeat
+
+            -- Press the Focus tile, then dump again to reveal the submenu.
+            set ftgt to missing value
+            try
+                repeat with e in (entire contents of window 1)
+                    try
+                        if (value of attribute "AXIdentifier" of e) is "controlcenter-focus-modes" then
+                            set ftgt to e
+                            exit repeat
+                        end if
+                    end try
+                end repeat
+            end try
+            set dumpText to dumpText & "== AFTER PRESSING FOCUS ==" & linefeed
+            if ftgt is missing value then
+                set dumpText to dumpText & "focus toggle NOT FOUND" & linefeed
+            else
+                try
+                    perform action "AXPress" of ftgt
+                end try
+                delay 1.2
+                set dumpText to dumpText & "windows now: " & (count of windows) & linefeed
+                repeat with w in windows
+                    set dumpText to dumpText & "WINDOW name=" & (name of w) & linefeed
+                    my walk(w, 1)
+                end repeat
+            end if
+
+            try
+                key code 53
+            end try
             try
                 key code 53
             end try
