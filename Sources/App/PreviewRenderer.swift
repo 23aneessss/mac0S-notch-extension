@@ -41,21 +41,26 @@ enum PreviewRenderer {
         let model = NotchModel(geometry: geo)
         model.isOpen = open
 
+        // Render at the true window size so the ears, rounded corners, shadow,
+        // and centering are all visible exactly as they appear on screen.
+        let w = geo.windowFrame.width
+        let h = geo.windowFrame.height
+
         let content = ZStack(alignment: .top) {
             Color(white: 0.22) // simulated desktop behind the panel
             NotchRootView(model: model, engine: engine, focus: focus)
-                .frame(width: geo.openWidth, height: geo.openHeight)
+                .frame(width: w, height: h)
             // Physical notch outline (centered at top).
             Rectangle()
                 .stroke(Color.green.opacity(0.7), lineWidth: 1)
                 .frame(width: geo.notchWidth, height: geo.notchHeight)
-                .frame(maxHeight: .infinity, alignment: .top)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             // Screen/notch center line.
             Rectangle()
                 .fill(Color.red.opacity(0.7))
                 .frame(width: 1)
         }
-        .frame(width: geo.openWidth, height: geo.openHeight)
+        .frame(width: w, height: h)
 
         let renderer = ImageRenderer(content: content)
         renderer.scale = 2

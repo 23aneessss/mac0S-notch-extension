@@ -2,119 +2,126 @@
 import AppKit
 import CoreGraphics
 
-// Renders FocusNotch's app icon at 1024×1024 and writes it next to the asset
-// catalog. `Tools/make_icons.sh` then derives the smaller sizes with `sips`.
+// Renders FocusNotch's app icon at 1024×1024. `Tools/make_icons.sh` derives the
+// smaller sizes with `sips`.
 //
-// Design: a "squircle" with a warm focus gradient, a dark notch biting into the
-// top edge, and a white progress ring with a play glyph at the center.
+// Design — premium & on-brand: a deep graphite squircle with a soft top sheen
+// and edge vignette for depth; a glowing black "notch" pill outlined in the
+// focus-accent gradient (with a camera dot); and a slim accent progress bar
+// beneath it that mirrors the in-app UI.
 
 let size = 1024
 let outPath = CommandLine.arguments.count > 1
     ? CommandLine.arguments[1]
     : "Sources/Resources/Assets.xcassets/AppIcon.appiconset/icon_1024.png"
 
-let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
+let cs = CGColorSpace(name: CGColorSpace.sRGB)!
 guard let ctx = CGContext(
-    data: nil,
-    width: size,
-    height: size,
-    bitsPerComponent: 8,
-    bytesPerRow: 0,
-    space: colorSpace,
-    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-) else {
-    fatalError("Could not create context")
-}
+    data: nil, width: size, height: size, bitsPerComponent: 8,
+    bytesPerRow: 0, space: cs, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+) else { fatalError("ctx") }
 
 let s = CGFloat(size)
+func c(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat, _ a: CGFloat = 1) -> CGColor {
+    CGColor(red: r/255, green: g/255, blue: b/255, alpha: a)
+}
+// Accent gradient (warm coral → magenta).
+let accentA = c(255, 122, 89)
+let accentB = c(255, 46, 120)
+
+// Squircle.
 let inset = s * 0.085
-let rect = CGRect(x: inset, y: inset, width: s - inset * 2, height: s - inset * 2)
-let corner = rect.width * 0.235  // Apple squircle-ish
+let rect = CGRect(x: inset, y: inset, width: s - inset*2, height: s - inset*2)
+let corner = rect.width * 0.235
+func squircle() -> CGPath { CGPath(roundedRect: rect, cornerWidth: corner, cornerHeight: corner, transform: nil) }
 
-func roundedPath(_ r: CGRect, _ radius: CGFloat) -> CGPath {
-    CGPath(roundedRect: r, cornerWidth: radius, cornerHeight: radius, transform: nil)
+// --- Background: deep graphite gradient ---
+ctx.saveGState()
+ctx.addPath(squircle()); ctx.clip()
+let bg = CGGradient(colorsSpace: cs, colors: [c(44,47,55), c(16,17,21)] as CFArray, locations: [0,1])!
+ctx.drawLinearGradient(bg, start: CGPoint(x: rect.midX, y: rect.maxY), end: CGPoint(x: rect.midX, y: rect.minY), options: [])
+
+// Soft accent glow rising from behind the notch.
+let glow = CGGradient(colorsSpace: cs, colors: [c(255,80,110,0.34), c(255,80,110,0)] as CFArray, locations: [0,1])!
+ctx.drawRadialGradient(glow,
+    startCenter: CGPoint(x: rect.midX, y: rect.maxY - rect.height*0.30), startRadius: 0,
+    endCenter: CGPoint(x: rect.midX, y: rect.maxY - rect.height*0.30), endRadius: rect.width*0.5, options: [])
+
+// Top sheen (glass highlight).
+let sheen = CGGradient(colorsSpace: cs, colors: [c(255,255,255,0.10), c(255,255,255,0)] as CFArray, locations: [0,1])!
+ctx.drawLinearGradient(sheen, start: CGPoint(x: rect.midX, y: rect.maxY), end: CGPoint(x: rect.midX, y: rect.maxY - rect.height*0.34), options: [])
+
+// Edge vignette for depth.
+let vig = CGGradient(colorsSpace: cs, colors: [c(0,0,0,0), c(0,0,0,0.28)] as CFArray, locations: [0.6,1])!
+ctx.drawRadialGradient(vig,
+    startCenter: CGPoint(x: rect.midX, y: rect.midY), startRadius: rect.width*0.30,
+    endCenter: CGPoint(x: rect.midX, y: rect.midY), endRadius: rect.width*0.72, options: [])
+ctx.restoreGState()
+
+// --- The glowing notch ---
+let nW = rect.width * 0.50
+let nH = rect.height * 0.20
+let nX = rect.midX - nW/2
+let nY = rect.maxY - rect.height*0.25 - nH       // upper-middle, balanced
+let nRadiusTop = nH * 0.28
+let nRadiusBottom = nH * 0.46
+func notchPath() -> CGPath {
+    let p = CGMutablePath()
+    let r = CGRect(x: nX, y: nY, width: nW, height: nH)
+    p.move(to: CGPoint(x: r.minX, y: r.maxY - nRadiusTop))
+    p.addQuadCurve(to: CGPoint(x: r.minX + nRadiusTop, y: r.maxY), control: CGPoint(x: r.minX, y: r.maxY))
+    p.addLine(to: CGPoint(x: r.maxX - nRadiusTop, y: r.maxY))
+    p.addQuadCurve(to: CGPoint(x: r.maxX, y: r.maxY - nRadiusTop), control: CGPoint(x: r.maxX, y: r.maxY))
+    p.addLine(to: CGPoint(x: r.maxX, y: r.minY + nRadiusBottom))
+    p.addQuadCurve(to: CGPoint(x: r.maxX - nRadiusBottom, y: r.minY), control: CGPoint(x: r.maxX, y: r.minY))
+    p.addLine(to: CGPoint(x: r.minX + nRadiusBottom, y: r.minY))
+    p.addQuadCurve(to: CGPoint(x: r.minX, y: r.minY + nRadiusBottom), control: CGPoint(x: r.minX, y: r.minY))
+    p.closeSubpath()
+    return p
 }
 
-// Background gradient (focus red → deep orange-red).
+// Glow halo behind the notch.
 ctx.saveGState()
-ctx.addPath(roundedPath(rect, corner))
-ctx.clip()
-let grad = CGGradient(
-    colorsSpace: colorSpace,
-    colors: [
-        CGColor(red: 1.00, green: 0.45, blue: 0.30, alpha: 1),
-        CGColor(red: 0.97, green: 0.20, blue: 0.32, alpha: 1),
-    ] as CFArray,
-    locations: [0, 1]
-)!
-ctx.drawLinearGradient(grad, start: CGPoint(x: rect.minX, y: rect.maxY), end: CGPoint(x: rect.maxX, y: rect.minY), options: [])
+ctx.setShadow(offset: .zero, blur: 55, color: c(255, 70, 110, 0.9))
+ctx.addPath(notchPath()); ctx.setFillColor(c(8,8,10)); ctx.fillPath()
 ctx.restoreGState()
 
-// Notch biting into the top edge.
-let notchW = rect.width * 0.42
-let notchH = rect.height * 0.11
-let notchRadius = notchH * 0.55
-let notchRect = CGRect(
-    x: rect.midX - notchW / 2,
-    y: rect.maxY - notchH,
-    width: notchW,
-    height: notchH + corner
-)
+// Accent-gradient outline around the notch.
 ctx.saveGState()
-ctx.addPath(roundedPath(rect, corner))
+ctx.addPath(notchPath())
+ctx.setLineWidth(rect.width * 0.012)
+ctx.replacePathWithStrokedPath()
 ctx.clip()
-let notchPath = CGMutablePath()
-notchPath.move(to: CGPoint(x: notchRect.minX, y: rect.maxY + 10))
-notchPath.addLine(to: CGPoint(x: notchRect.minX, y: notchRect.minY + notchRadius))
-notchPath.addQuadCurve(to: CGPoint(x: notchRect.minX + notchRadius, y: notchRect.minY),
-                       control: CGPoint(x: notchRect.minX, y: notchRect.minY))
-notchPath.addLine(to: CGPoint(x: notchRect.maxX - notchRadius, y: notchRect.minY))
-notchPath.addQuadCurve(to: CGPoint(x: notchRect.maxX, y: notchRect.minY + notchRadius),
-                       control: CGPoint(x: notchRect.maxX, y: notchRect.minY))
-notchPath.addLine(to: CGPoint(x: notchRect.maxX, y: rect.maxY + 10))
-notchPath.closeSubpath()
-ctx.addPath(notchPath)
-ctx.setFillColor(CGColor(red: 0.07, green: 0.07, blue: 0.09, alpha: 1))
-ctx.fillPath()
+let stroke = CGGradient(colorsSpace: cs, colors: [accentA, accentB] as CFArray, locations: [0,1])!
+ctx.drawLinearGradient(stroke, start: CGPoint(x: nX, y: nY+nH), end: CGPoint(x: nX+nW, y: nY), options: [])
 ctx.restoreGState()
 
-// Progress ring.
-let ringCenter = CGPoint(x: rect.midX, y: rect.midY - rect.height * 0.03)
-let ringRadius = rect.width * 0.27
-let ringWidth = rect.width * 0.055
+// Camera dot.
+let dotR = nH * 0.10
+ctx.setFillColor(c(255,255,255,0.85))
+ctx.fillEllipse(in: CGRect(x: rect.midX - dotR, y: nY + nH*0.5 - dotR, width: dotR*2, height: dotR*2))
 
-ctx.setLineCap(.round)
-// Track
-ctx.setStrokeColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.22))
-ctx.setLineWidth(ringWidth)
-ctx.addArc(center: ringCenter, radius: ringRadius, startAngle: 0, endAngle: .pi * 2, clockwise: false)
-ctx.strokePath()
-// Progress (about 70%)
-ctx.setStrokeColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
-ctx.setLineWidth(ringWidth)
-let start = CGFloat.pi / 2
-ctx.addArc(center: ringCenter, radius: ringRadius, startAngle: start, endAngle: start - .pi * 2 * 0.70, clockwise: true)
-ctx.strokePath()
+// --- Progress bar beneath the notch ---
+let barW = nW
+let barH = rect.height * 0.052
+let barX = rect.midX - barW/2
+let barY = nY - rect.height*0.12 - barH
+let barRadius = barH/2
+// Track.
+ctx.addPath(CGPath(roundedRect: CGRect(x: barX, y: barY, width: barW, height: barH), cornerWidth: barRadius, cornerHeight: barRadius, transform: nil))
+ctx.setFillColor(c(255,255,255,0.14)); ctx.fillPath()
+// Fill (~68%) with glow.
+let fillW = barW * 0.68
+ctx.saveGState()
+ctx.setShadow(offset: .zero, blur: 22, color: c(255,70,110,0.7))
+ctx.addPath(CGPath(roundedRect: CGRect(x: barX, y: barY, width: fillW, height: barH), cornerWidth: barRadius, cornerHeight: barRadius, transform: nil))
+ctx.clip()
+ctx.drawLinearGradient(stroke, start: CGPoint(x: barX, y: barY), end: CGPoint(x: barX+fillW, y: barY), options: [])
+ctx.restoreGState()
 
-// Play glyph.
-let g = rect.width * 0.085
-let playPath = CGMutablePath()
-playPath.move(to: CGPoint(x: ringCenter.x - g * 0.6, y: ringCenter.y + g))
-playPath.addLine(to: CGPoint(x: ringCenter.x - g * 0.6, y: ringCenter.y - g))
-playPath.addLine(to: CGPoint(x: ringCenter.x + g, y: ringCenter.y))
-playPath.closeSubpath()
-ctx.addPath(playPath)
-ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
-ctx.fillPath()
-
-guard let image = ctx.makeImage() else { fatalError("Could not render image") }
+// --- Write PNG ---
+guard let image = ctx.makeImage() else { fatalError("image") }
 let url = URL(fileURLWithPath: outPath)
-guard let dest = CGImageDestinationCreateWithURL(url as CFURL, "public.png" as CFString, 1, nil) else {
-    fatalError("Could not create destination at \(outPath)")
-}
+guard let dest = CGImageDestinationCreateWithURL(url as CFURL, "public.png" as CFString, 1, nil) else { fatalError("dest") }
 CGImageDestinationAddImage(dest, image, nil)
-if CGImageDestinationFinalize(dest) {
-    print("Wrote \(outPath)")
-} else {
-    fatalError("Could not write PNG")
-}
+if CGImageDestinationFinalize(dest) { print("Wrote \(outPath)") } else { fatalError("write") }
