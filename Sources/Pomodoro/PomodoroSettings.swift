@@ -24,6 +24,9 @@ final class PomodoroSettings {
     var showNotifications: Bool { didSet { defaults.set(showNotifications, forKey: Keys.showNotifications) } }
     var showOnNonNotchDisplays: Bool { didSet { defaults.set(showOnNonNotchDisplays, forKey: Keys.showOnNonNotchDisplays) } }
 
+    /// Whether the first-launch onboarding has been completed.
+    var hasCompletedOnboarding: Bool { didSet { defaults.set(hasCompletedOnboarding, forKey: Keys.hasCompletedOnboarding) } }
+
     var launchAtLogin: Bool {
         didSet {
             defaults.set(launchAtLogin, forKey: Keys.launchAtLogin)
@@ -56,6 +59,7 @@ final class PomodoroSettings {
 
         focusEnabled = defaults.bool(forKey: Keys.focusEnabled)
         dndShortcutName = defaults.string(forKey: Keys.dndShortcutName) ?? "macos-focus-mode"
+        hasCompletedOnboarding = defaults.bool(forKey: Keys.hasCompletedOnboarding)
     }
 
     /// Duration in seconds for a given phase.
@@ -106,5 +110,6 @@ final class PomodoroSettings {
         static let launchAtLogin = "launchAtLogin"
         static let focusEnabled = "focusEnabled"
         static let dndShortcutName = "dndShortcutName"
+        static let hasCompletedOnboarding = "hasCompletedOnboarding"
     }
 }

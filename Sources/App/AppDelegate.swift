@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var notchController: NotchController?
     private var statusItemController: StatusItemController?
+    private var onboardingController: OnboardingWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Agent apps still benefit from being the accessory activation policy.
@@ -24,6 +25,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Apply the persisted launch-at-login preference.
         LaunchAtLogin.isEnabled = environment.settings.launchAtLogin
+
+        // First-launch onboarding.
+        if !environment.settings.hasCompletedOnboarding {
+            let onboarding = OnboardingWindowController(environment: environment)
+            onboarding.show()
+            self.onboardingController = onboarding
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
