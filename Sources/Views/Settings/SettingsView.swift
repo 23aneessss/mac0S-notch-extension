@@ -5,6 +5,8 @@ struct SettingsView: View {
     @Bindable var settings: PomodoroSettings
     let focus: FocusController
 
+    @State private var shortcutFound = false
+
     var body: some View {
         TabView {
             timerTab
@@ -65,27 +67,38 @@ struct SettingsView: View {
             Section {
                 Toggle("Enable Do Not Disturb during focus sessions", isOn: $settings.focusEnabled)
             } footer: {
-                Text("The moon button on the notch always toggles Do Not Disturb manually. macOS has no public API for Focus, so FocusNotch flips the Control Center toggle — this needs Accessibility permission (you'll be asked the first time).")
+                Text("The moon button on the notch toggles Do Not Disturb. macOS has no public Focus API, so FocusNotch runs a Shortcut that accepts \u{201C}on\u{201D}/\u{201C}off\u{201D} — compatible with the free \u{201C}macos-focus-mode\u{201D} shortcut.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            Section("Permission") {
+            Section {
+                TextField("Shortcut name", text: $settings.dndShortcutName)
                 HStack {
-                    Text("Accessibility access")
+                    Text("Status")
                     Spacer()
-                    Text(focus.accessibilityGranted ? "Granted" : "Not granted")
-                        .foregroundStyle(focus.accessibilityGranted ? .green : .secondary)
+                    Text(shortcutFound ? "Installed" : "Not found")
+                        .foregroundStyle(shortcutFound ? .green : .orange)
                 }
-                Button("Open Accessibility Settings…") {
-                    focus.openAccessibilitySettings()
-                }
-                Button("Test Do Not Disturb toggle") {
+                Button("Test toggle") {
                     focus.toggleManually()
                 }
+                Button("Open Shortcuts app") {
+                    if let url = URL(string: "shortcuts://") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+            } header: {
+                Text("Shortcut")
+            } footer: {
+                Text("Don't have it? Install the shortcut once with: npx macos-focus-mode install — or create a Shortcut that takes text input and runs \u{201C}Set Focus → Do Not Disturb\u{201D}.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
+        .onAppear { shortcutFound = focus.isAvailable }
+        .onChange(of: settings.dndShortcutName) { _, _ in shortcutFound = focus.isAvailable }
     }
 
     // MARK: About

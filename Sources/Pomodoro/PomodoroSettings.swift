@@ -35,6 +35,8 @@ final class PomodoroSettings {
 
     /// Automatically enable macOS Do Not Disturb during focus sessions.
     var focusEnabled: Bool { didSet { defaults.set(focusEnabled, forKey: Keys.focusEnabled) } }
+    /// Name of the Shortcut that toggles Do Not Disturb (accepts "on"/"off").
+    var dndShortcutName: String { didSet { defaults.set(dndShortcutName, forKey: Keys.dndShortcutName) } }
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -53,6 +55,7 @@ final class PomodoroSettings {
         launchAtLogin = defaults.bool(forKey: Keys.launchAtLogin)
 
         focusEnabled = defaults.bool(forKey: Keys.focusEnabled)
+        dndShortcutName = defaults.string(forKey: Keys.dndShortcutName) ?? "macos-focus-mode"
     }
 
     /// Duration in seconds for a given phase.
@@ -102,5 +105,6 @@ final class PomodoroSettings {
         static let showOnNonNotchDisplays = "showOnNonNotchDisplays"
         static let launchAtLogin = "launchAtLogin"
         static let focusEnabled = "focusEnabled"
+        static let dndShortcutName = "dndShortcutName"
     }
 }

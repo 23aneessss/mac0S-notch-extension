@@ -4,13 +4,10 @@
 <dict>
 	<!--
 	  FocusNotch is distributed outside the Mac App Store (direct download /
-	  notarized DMG) so it can drive Do Not Disturb through Control Center
-	  automation. App Sandbox is disabled; the Apple Events entitlement is
-	  required under Hardened Runtime to send events to System Events.
+	  notarized DMG) so it can run the Shortcuts CLI to toggle Do Not Disturb.
+	  App Sandbox is therefore disabled.
 	-->
 	<key>com.apple.security.app-sandbox</key>
 	<false/>
-	<key>com.apple.security.automation.apple-events</key>
-	<true/>
 </dict>
 </plist>

@@ -223,14 +223,4 @@ final class PomodoroEngine {
     private func notifyChange() {
         onChange?()
     }
-
-    #if DEBUG
-    /// Forces a specific state for offscreen preview rendering only.
-    func previewState(phase: PomodoroPhase, remaining: TimeInterval, runState: RunState, cyclePosition: Int) {
-        self.phase = phase
-        self.remaining = remaining
-        self.runState = runState
-        self.cyclePosition = cyclePosition
-    }
-    #endif
 }

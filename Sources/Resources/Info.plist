@@ -28,8 +28,6 @@
 	<string>NSApplication</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2026. All rights reserved.</string>
-	<key>NSAppleEventsUsageDescription</key>
-	<string>FocusNotch toggles macOS Do Not Disturb through the Control Center on your behalf.</string>
 	<key>NSSupportsAutomaticTermination</key>
 	<true/>
 	<key>NSSupportsSuddenTermination</key>

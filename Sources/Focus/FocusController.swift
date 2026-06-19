@@ -1,16 +1,12 @@
 import AppKit
-import ApplicationServices
 import Observation
 
-/// Toggles macOS **Do Not Disturb** via the Control Center.
+/// Toggles macOS **Do Not Disturb** by running a Shortcuts shortcut.
 ///
-/// Apple exposes no public API to set Focus/DND, so FocusNotch automates the
-/// Control Center toggle through the Accessibility (AX) system. This requires
-/// the user to grant Accessibility permission once; the first attempt prompts
-/// for it and opens the relevant Settings pane.
-///
-/// `isActive` tracks the state *we* set. The manual moon button always toggles;
-/// automatic activation during focus sessions is gated by `focusEnabled`.
+/// Apple exposes no public API for Focus, so the reliable bridge is a Shortcut
+/// that accepts `on` / `off` via standard input. This is compatible with the
+/// free `macos-focus-mode` shortcut (the default). The name is configurable in
+/// Settings. No Accessibility or Automation permissions are required.
 @MainActor
 @Observable
 final class FocusController {
@@ -21,8 +17,8 @@ final class FocusController {
         self.settings = settings
     }
 
-    /// Whether macOS has granted us Accessibility control.
-    var accessibilityGranted: Bool { AXIsProcessTrusted() }
+    /// Whether the configured shortcut is currently installed.
+    var isAvailable: Bool { Self.shortcutExists(settings.dndShortcutName) }
 
     // MARK: Session-driven (auto)
 
@@ -36,7 +32,7 @@ final class FocusController {
         setDoNotDisturb(false)
     }
 
-    // MARK: Manual (moon button) — always works
+    // MARK: Manual (moon button)
 
     func toggleManually() {
         setDoNotDisturb(!isActive)
@@ -45,136 +41,67 @@ final class FocusController {
     // MARK: Implementation
 
     private func setDoNotDisturb(_ on: Bool) {
-        guard on != isActive else { return }
-        guard ensureAccessibilityPermission() else { return }
-        if Self.runDNDToggle() {
-            isActive = on
+        let name = settings.dndShortcutName
+        guard !name.isEmpty else { return }
+        isActive = on // optimistic — the UI reflects the change immediately
+        Self.runShortcut(name: name, input: on ? "on" : "off") { [weak self] success in
+            if !success { self?.isActive = !on } // revert if the shortcut failed
         }
     }
 
-    /// Returns true if Accessibility is granted. Otherwise prompts the user and
-    /// opens the Accessibility settings pane, and returns false.
-    @discardableResult
-    func ensureAccessibilityPermission() -> Bool {
-        if AXIsProcessTrusted() { return true }
-        // Prompt (shows the system dialog) using the documented option key.
-        let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
-        AXIsProcessTrustedWithOptions(options)
-        openAccessibilitySettings()
-        return false
-    }
+    // MARK: Shortcuts CLI
 
-    func openAccessibilitySettings() {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-            NSWorkspace.shared.open(url)
+    /// Runs `shortcuts run <name>`, piping `input` ("on"/"off") to stdin.
+    nonisolated static func runShortcut(
+        name: String,
+        input: String,
+        completion: (@MainActor (Bool) -> Void)? = nil
+    ) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/shortcuts")
+            process.arguments = ["run", name]
+            let stdin = Pipe()
+            process.standardInput = stdin
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+
+            var ok = false
+            do {
+                try process.run()
+                stdin.fileHandleForWriting.write(Data(input.utf8))
+                try? stdin.fileHandleForWriting.close()
+                process.waitUntilExit()
+                ok = process.terminationStatus == 0
+            } catch {
+                NSLog("FocusNotch: failed to run shortcut \"\(name)\": \(error.localizedDescription)")
+            }
+
+            if let completion {
+                Task { @MainActor in completion(ok) }
+            }
         }
     }
 
-    /// Drives the Control Center "Focus" toggle (AXIdentifier
-    /// Toggles macOS Do Not Disturb: opens Control Center, presses the Focus
-    /// tile (AXIdentifier `controlcenter-focus-modes`) to expand its submenu,
-    /// then presses the labelled "Do Not Disturb" row. Returns true on success.
-    ///
-    /// `entire contents` doesn't enumerate this window on macOS Tahoe, so we
-    /// traverse `UI elements` recursively.
-    private static func runDNDToggle() -> Bool {
-        let source = """
-        on findById(el, theId)
-            tell application "System Events"
-                set kids to {}
-                try
-                    set kids to UI elements of el
-                end try
-                repeat with k in kids
-                    try
-                        if (value of attribute "AXIdentifier" of k) is theId then return k
-                    end try
-                    set sub to my findById(k, theId)
-                    if sub is not missing value then return sub
-                end repeat
-            end tell
-            return missing value
-        end findById
-
-        on findByLabel(el, theLabel)
-            tell application "System Events"
-                set kids to {}
-                try
-                    set kids to UI elements of el
-                end try
-                repeat with k in kids
-                    try
-                        if (name of k) is theLabel then return k
-                    end try
-                    try
-                        if (description of k) is theLabel then return k
-                    end try
-                    set sub to my findByLabel(k, theLabel)
-                    if sub is not missing value then return sub
-                end repeat
-            end tell
-            return missing value
-        end findByLabel
-
-        tell application "System Events"
-            tell process "ControlCenter"
-                set frontmost to true
-                try
-                    perform action "AXPress" of (first menu bar item of menu bar 1 whose description is "Control Center")
-                on error
-                    return "noopen"
-                end try
-                delay 0.5
-
-                set focusTile to my findById(window 1, "controlcenter-focus-modes")
-                if focusTile is missing value then
-                    try
-                        key code 53
-                    end try
-                    return "notile"
-                end if
-                perform action "AXPress" of focusTile
-                delay 0.6
-
-                set dnd to missing value
-                repeat with w in windows
-                    set dnd to my findByLabel(w, "Do Not Disturb")
-                    if dnd is not missing value then exit repeat
-                end repeat
-                if dnd is missing value then
-                    try
-                        key code 53
-                    end try
-                    try
-                        key code 53
-                    end try
-                    return "nodnd"
-                end if
-
-                perform action "AXPress" of dnd
-                delay 0.2
-                try
-                    key code 53
-                end try
-                try
-                    key code 53
-                end try
-                return "ok"
-            end tell
-        end tell
-        """
-        guard let script = NSAppleScript(source: source) else { return false }
-        var error: NSDictionary?
-        let result = script.executeAndReturnError(&error)
-        if let error {
-            NSLog("FocusNotch: Do Not Disturb toggle failed: \(error)")
+    /// Whether a shortcut with the given name appears in `shortcuts list`.
+    nonisolated static func shortcutExists(_ name: String) -> Bool {
+        guard !name.isEmpty else { return false }
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/shortcuts")
+        process.arguments = ["list"]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
+        do {
+            try process.run()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
+            return String(decoding: data, as: UTF8.self)
+                .split(separator: "\n")
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .contains(name)
+        } catch {
             return false
         }
-        let value = result.stringValue ?? ""
-        if value != "ok" {
-            NSLog("FocusNotch: Do Not Disturb toggle did not complete (\(value)).")
-            return false
-        }
-        return true
     }
 }

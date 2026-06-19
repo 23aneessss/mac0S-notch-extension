@@ -63,10 +63,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
         menu.addItem(item("Settings…", #selector(openSettings), key: ","))
         menu.addItem(item("About FocusNotch", #selector(showAbout), key: ""))
-        #if DEBUG
-        menu.addItem(.separator())
-        menu.addItem(item("Debug: Dump Control Center", #selector(dumpControlCenter), key: ""))
-        #endif
         menu.addItem(.separator())
         menu.addItem(item("Quit FocusNotch", #selector(quit), key: "q"))
     }
@@ -94,16 +90,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     @objc private func resetPhase() { environment.engine.resetCurrentPhase() }
     @objc private func resetAll() { environment.engine.resetAll() }
     @objc private func quit() { NSApp.terminate(nil) }
-
-    #if DEBUG
-    @objc private func dumpControlCenter() {
-        let path = ControlCenterDump.dumpToFile()
-        let alert = NSAlert()
-        alert.messageText = "Control Center dumped"
-        alert.informativeText = "Written to:\n\(path)"
-        alert.runModal()
-    }
-    #endif
 
     @objc private func openSettings() {
         if settingsController == nil {

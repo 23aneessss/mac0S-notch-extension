@@ -10,15 +10,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItemController: StatusItemController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        #if DEBUG
-        if ControlCenterDump.runIfRequested() {
-            exit(0)
-        }
-        if PreviewRenderer.renderIfRequested() {
-            exit(0)
-        }
-        #endif
-
         // Agent apps still benefit from being the accessory activation policy.
         NSApp.setActivationPolicy(.accessory)
 

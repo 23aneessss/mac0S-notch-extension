@@ -64,14 +64,21 @@ bash Tools/make_icons.sh
 
 ## Focus / Do Not Disturb setup
 
-Apple provides no public API to toggle Focus directly, so FocusNotch uses the
-**Shortcuts** app:
+Apple provides no public API to toggle Focus, so FocusNotch runs a **Shortcut**
+that accepts `on`/`off` via standard input. It defaults to the free
+[`macos-focus-mode`](https://github.com/sindresorhus/macos-focus-mode) shortcut:
 
-1. Open **Shortcuts** → create a shortcut that runs **Set Focus** → *Do Not Disturb* → **On** (a "Turn On" action). Name it, e.g. `Focus On`.
-2. Create a second shortcut that sets the same Focus **Off**. Name it, e.g. `Focus Off`.
-3. In **FocusNotch → Settings → Focus**, enable the feature and enter those two names. Use the **Test** buttons to confirm.
+```bash
+npx macos-focus-mode install
+```
 
-FocusNotch then runs `shortcuts run "<name>"` when a focus session starts/ends.
+That installs a shortcut named `macos-focus-mode`. The moon button on the notch
+then toggles Do Not Disturb; enable **Settings → Focus → "Enable Do Not Disturb
+during focus sessions"** to have it follow your work sessions automatically.
+
+Prefer your own shortcut? Create one that takes text input and runs **Set Focus
+→ Do Not Disturb**, then set its name in **Settings → Focus**. The first time
+the app runs it, macOS asks once to allow FocusNotch to run the shortcut.
 
 ## Architecture
 
