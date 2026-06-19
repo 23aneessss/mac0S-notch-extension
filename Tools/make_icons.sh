@@ -5,9 +5,10 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 ICONSET="Sources/Resources/Assets.xcassets/AppIcon.appiconset"
 BASE="$ICONSET/icon_1024.png"
+STYLE="${1:-warm}"   # dark | vibrant | indigo | light | warm
 
-echo "Rendering 1024px master icon…"
-swift Tools/generate_icon.swift "$BASE"
+echo "Rendering 1024px master icon (style: $STYLE)…"
+swift Tools/generate_icon.swift "$BASE" "$STYLE"
 
 for size in 16 32 64 128 256 512; do
   echo "Deriving ${size}px…"
