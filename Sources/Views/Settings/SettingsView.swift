@@ -63,33 +63,26 @@ struct SettingsView: View {
     private var focusTab: some View {
         Form {
             Section {
-                Toggle("Enable Focus during sessions", isOn: $settings.focusEnabled)
+                Toggle("Enable Do Not Disturb during focus sessions", isOn: $settings.focusEnabled)
             } footer: {
-                Text("FocusNotch triggers macOS Focus through Shortcuts. Create two shortcuts (one that turns a Focus on, one that turns it off) in the Shortcuts app, then enter their exact names below.")
+                Text("The moon button on the notch always toggles Do Not Disturb manually. macOS has no public API for Focus, so FocusNotch flips the Control Center toggle — this needs Accessibility permission (you'll be asked the first time).")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            Section("Shortcut names") {
-                TextField("Turn Focus on", text: $settings.focusOnShortcut)
-                TextField("Turn Focus off", text: $settings.focusOffShortcut)
-            }
-            .disabled(!settings.focusEnabled)
-
-            Section {
-                Button("Open Shortcuts app") {
-                    if let url = URL(string: "shortcuts://") {
-                        NSWorkspace.shared.open(url)
-                    }
+            Section("Permission") {
+                HStack {
+                    Text("Accessibility access")
+                    Spacer()
+                    Text(focus.accessibilityGranted ? "Granted" : "Not granted")
+                        .foregroundStyle(focus.accessibilityGranted ? .green : .secondary)
                 }
-                Button("Test \"on\" shortcut") {
-                    FocusController.run(shortcut: settings.focusOnShortcut)
+                Button("Open Accessibility Settings…") {
+                    focus.openAccessibilitySettings()
                 }
-                .disabled(!settings.focusEnabled || settings.focusOnShortcut.isEmpty)
-                Button("Test \"off\" shortcut") {
-                    FocusController.run(shortcut: settings.focusOffShortcut)
+                Button("Test Do Not Disturb toggle") {
+                    focus.toggleManually()
                 }
-                .disabled(!settings.focusEnabled || settings.focusOffShortcut.isEmpty)
             }
         }
         .formStyle(.grouped)
