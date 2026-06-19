@@ -11,15 +11,60 @@ import AppKit
 @MainActor
 enum ControlCenterDump {
     private static let script = """
-    set output to ""
+    global dumpText
+    set dumpText to ""
+
+    on walk(el, depth)
+        global dumpText
+        if depth > 7 then return
+        set pad to ""
+        repeat depth times
+            set pad to pad & "  "
+        end repeat
+        tell application "System Events"
+            set kids to {}
+            try
+                set kids to UI elements of el
+            end try
+            repeat with k in kids
+                set kClass to "?"
+                set kDesc to ""
+                set kName to ""
+                set kRole to ""
+                set kId to ""
+                set kHelp to ""
+                try
+                    set kClass to (class of k as text)
+                end try
+                try
+                    set kDesc to (description of k)
+                end try
+                try
+                    set kName to (name of k)
+                end try
+                try
+                    set kRole to (role description of k)
+                end try
+                try
+                    set kId to (value of attribute "AXIdentifier" of k)
+                end try
+                try
+                    set kHelp to (help of k)
+                end try
+                set dumpText to dumpText & pad & kClass & " | role=" & kRole & " | id=" & kId & " | help=" & kHelp & " | desc=" & kDesc & " | name=" & kName & linefeed
+                my walk(k, depth + 1)
+            end repeat
+        end tell
+    end walk
+
     tell application "System Events"
         tell process "ControlCenter"
             set frontmost to true
-            set output to output & "== MENU BAR ITEMS ==" & linefeed
+            set dumpText to dumpText & "== MENU BAR ITEMS ==" & linefeed
             try
                 repeat with mbi in (menu bar items of menu bar 1)
                     try
-                        set output to output & "  desc=" & (description of mbi) & " | name=" & (name of mbi) & linefeed
+                        set dumpText to dumpText & "  desc=" & (description of mbi) & " | name=" & (name of mbi) & linefeed
                     end try
                 end repeat
             end try
@@ -30,28 +75,18 @@ enum ControlCenterDump {
                     perform action "AXPress" of (last menu bar item of menu bar 1)
                 end try
             end try
-            delay 0.9
-            set output to output & "== WINDOWS ==" & linefeed
-            try
-                repeat with w in windows
-                    set output to output & "WINDOW: " & (name of w) & linefeed
-                    try
-                        repeat with e in (entire contents of w)
-                            try
-                                set output to output & "  " & (class of e as text) & " | desc=" & (description of e) & " | name=" & (name of e) & linefeed
-                            end try
-                        end repeat
-                    end try
-                end repeat
-            on error errMsg
-                set output to output & "ERR: " & errMsg
-            end try
+            delay 1.5
+            set dumpText to dumpText & "== WINDOWS (" & (count of windows) & ") ==" & linefeed
+            repeat with w in windows
+                set dumpText to dumpText & "WINDOW name=" & (name of w) & linefeed
+                my walk(w, 1)
+            end repeat
             try
                 key code 53
             end try
         end tell
     end tell
-    return output
+    return dumpText
     """
 
     /// Runs the dump and returns the text (used by the env-var path).

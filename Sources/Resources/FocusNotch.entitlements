@@ -4,12 +4,13 @@
 <dict>
 	<!--
 	  FocusNotch is distributed outside the Mac App Store (direct download /
-	  notarized DMG) so it can drive Focus modes through the `shortcuts` CLI.
-	  App Sandbox is therefore disabled. If you target the Mac App Store you
-	  must enable the sandbox and replace the Process-based Focus integration
-	  with an App Intent. See README "Distribution".
+	  notarized DMG) so it can drive Do Not Disturb through Control Center
+	  automation. App Sandbox is disabled; the Apple Events entitlement is
+	  required under Hardened Runtime to send events to System Events.
 	-->
 	<key>com.apple.security.app-sandbox</key>
 	<false/>
+	<key>com.apple.security.automation.apple-events</key>
+	<true/>
 </dict>
 </plist>
