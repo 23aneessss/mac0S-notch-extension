@@ -1,13 +1,15 @@
 <div align="center">
 
+<img src="assets/icon.png" width="128" alt="FocusNotch icon" />
+
 # FocusNotch
 
 **Make your MacBook's notch useful — a Pomodoro timer that lives in the notch.**
 
 When you're not looking, FocusNotch shows the time left in your session on the
 left of the notch and your session progress on the right. Hover over it and the
-notch expands into a full control panel: progress ring, session tracker,
-transport controls, and a one-tap Focus / Do Not Disturb toggle.
+notch expands into a full control panel: a hero countdown, a progress bar,
+session tracker, transport controls, and a one-tap Do Not Disturb toggle.
 
 </div>
 
